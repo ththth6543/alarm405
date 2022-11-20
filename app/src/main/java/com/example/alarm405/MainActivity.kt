@@ -2,12 +2,14 @@ package com.example.alarm405
 
 import android.app.Activity
 import android.app.AlarmManager
+import android.app.AlarmManager.AlarmClockInfo
 import android.app.PendingIntent
 import android.app.ProgressDialog.show
 import android.app.TimePickerDialog
 import android.content.Context
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -51,13 +53,15 @@ class MainActivity : AppCompatActivity() {
                 val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val intent = Intent(this, AlarmReceiver::class.java)
                 val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE,
-                    intent, PendingIntent.FLAG_UPDATE_CURRENT)
-                alarmManager.setRepeating(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    AlarmManager.INTERVAL_DAY,
+                    intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+                val alarmClockInfo = AlarmClockInfo(calendar.timeInMillis, pendingIntent)
+                alarmManager.setAlarmClock(
+                    alarmClockInfo,
                     pendingIntent
                 )
+                Log.i("initOnOffButton", "AlarmClock 등록됨!!")
+                val intent2 = Intent(this, MainActivity2::class.java)
+                startActivity(intent2)
             } else {
                 cancelAlarm()
             }
@@ -119,7 +123,8 @@ class MainActivity : AppCompatActivity() {
         // 보정 보정 예외처리
 
         val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE,
-            Intent(this, AlarmReceiver::class.java), PendingIntent.FLAG_NO_CREATE)
+            Intent(this, AlarmReceiver::class.java), (PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_MUTABLE)
+        )
 
         if ((pendingIntent == null) and alarmModel.onOff) {
             // 알람은 꺼져있는데, 데이터는 켜저있는 경우
@@ -153,7 +158,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun cancelAlarm() {
         val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE,
-            Intent(this, AlarmReceiver::class.java), PendingIntent.FLAG_NO_CREATE)
+            Intent(this, AlarmReceiver::class.java), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_MUTABLE)
         pendingIntent?.cancel()
     }
 

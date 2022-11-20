@@ -1,5 +1,6 @@
 package com.example.alarm405
 
+import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,14 +10,12 @@ import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK
-import android.os.PowerManager.WakeLock
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.view.Window
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -31,18 +30,26 @@ class AlarmReceiver: BroadcastReceiver() {
         const val NOTIFICATION_CHANNEL_ID = "1000"
     }
 
-    val sCpuWakeLock = PowerManager.PARTIAL_WAKE_LOCK
+    var sCpuWakeLock = PowerManager.PARTIAL_WAKE_LOCK
 
     override fun onReceive(context: Context, intent: Intent) {
+        Log.d("onReceive", "수신 받음!!!!!!!!!!!!!!!")
 //        val intent1 = Intent(context, MainActivity::class.java)
 //        intent1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 //        //context.startActivity(intent1)
 //        context.startService(intent1)
 
 
-        val intent2 = Intent(context, MainActivity::class.java)
-        intent2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        val intent2 = Intent(context, MainActivity2::class.java)
+        intent2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         //context.startForegroundService(intent2)
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent2)
+        } else {
+            startActivity(context, intent2, null)
+        }
+
 
 
         createNotificationChannel(context)
@@ -59,38 +66,51 @@ class AlarmReceiver: BroadcastReceiver() {
     }
 
     private fun createNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // 호환성 고려
+            val notificationChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "기상 알람",
+                NotificationManager.IMPORTANCE_HIGH
+            )
 
-        val notificationChannel = NotificationChannel(
-            NOTIFICATION_CHANNEL_ID,
-            "기상 알람",
-            NotificationManager.IMPORTANCE_HIGH
-        )
-
-        NotificationManagerCompat.from(context).createNotificationChannel(notificationChannel)
+            NotificationManagerCompat.from(context).createNotificationChannel(notificationChannel)
+        }
     }
 
+    @SuppressLint("SuspiciousIndentation")
     private fun notifyNotification(context: Context) {
-        val tapResultIntent = Intent(context, MainActivity::class.java).apply {
-            action = "fullscreen_activity"
+        val tapResultIntent = Intent(context, MainActivity::class.java)
+            .apply {
+            // action = "fullscreen_activity"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+            }
+
         val pendingIntent: PendingIntent = PendingIntent.getActivity(
             context,
             0,
             tapResultIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
+        // 여기서부터 추가한 내용
+        val fullscreenIntent = Intent(context, MainActivity2::class.java).apply {
+            action = "fullscreen_activity"
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val fullscreenPendingIntent = PendingIntent.getActivity(context, 0, fullscreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // 여기까지
         with(NotificationManagerCompat.from(context)) {
             val build = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("알람")
                 .setContentText("일어날 시간입니다.")
                 .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
+                .setContentIntent(pendingIntent)        // 이 부분이 fullscreenPendingIntent가 아니여도 되는가?
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setFullScreenIntent(pendingIntent, true)
-                notify(NOTIFICATION_ID, build.build())
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)    // 추가
+                .setPriority(NotificationCompat.PRIORITY_MAX)          // High에서 MAX로 변경
+                .setFullScreenIntent(fullscreenPendingIntent, true)
+            notify(NOTIFICATION_ID, build.build())
         }
 
 
